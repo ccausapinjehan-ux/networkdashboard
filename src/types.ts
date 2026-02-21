@@ -6,11 +6,14 @@ export interface Device {
   status: 'online' | 'offline' | 'unknown';
   last_seen: string | null;
   location: string;
+  latency: number;
+  downtime_start: string | null;
 }
 
 export interface DeviceLog {
   id: number;
   device_id: number;
   status: string;
+  latency: number;
   timestamp: string;
 }

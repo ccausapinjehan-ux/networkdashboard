@@ -13,7 +13,8 @@ const __dirname = path.dirname(__filename);
 const db = new Database("network_monitor.db");
 
 // Initialize Database
-db.exec(`
+try {
+  db.exec(`
   CREATE TABLE IF NOT EXISTS devices (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
@@ -21,13 +22,16 @@ db.exec(`
     type TEXT NOT NULL,
     status TEXT DEFAULT 'unknown',
     last_seen DATETIME,
-    location TEXT
+    location TEXT,
+    latency INTEGER DEFAULT 0,
+    downtime_start DATETIME
   );
 
   CREATE TABLE IF NOT EXISTS logs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     device_id INTEGER,
     status TEXT,
+    latency INTEGER DEFAULT 0,
     timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY(device_id) REFERENCES devices(id)
   );
@@ -38,7 +42,15 @@ db.exec(`
   );
 
   INSERT OR IGNORE INTO settings (key, value) VALUES ('simulation_mode', 'false');
+
+  -- Ensure columns exist for existing databases
+  ALTER TABLE devices ADD COLUMN latency INTEGER DEFAULT 0;
+  ALTER TABLE devices ADD COLUMN downtime_start DATETIME;
+  ALTER TABLE logs ADD COLUMN latency INTEGER DEFAULT 0;
 `);
+} catch (e) {
+  // Ignore errors if columns already exist
+}
 
 // Seed initial data if empty
 const deviceCount = db.prepare("SELECT COUNT(*) as count FROM devices").get() as { count: number };
@@ -105,7 +117,7 @@ async function startServer() {
 
   app.post("/api/agent/report", (req, res) => {
     try {
-      const reports = req.body; // Array of { ip: string, status: string }
+      const reports = req.body; // Array of { ip: string, status: string, latency: number }
       
       if (!Array.isArray(reports)) {
         return res.status(400).json({ error: "Invalid payload" });
@@ -118,19 +130,31 @@ async function startServer() {
         
         devices.forEach(device => {
           const normalizedStatus = String(report.status).toLowerCase();
+          const latency = report.latency || 0;
           const timestamp = new Date().toISOString();
           
-          console.log(`[AGENT] Updating ${device.ip} (${device.name}): ${device.status} -> ${normalizedStatus}`);
-          
-          db.prepare("UPDATE devices SET last_seen = ?, status = ? WHERE id = ?").run(timestamp, normalizedStatus, device.id);
+          let downtimeStart = device.downtime_start;
+          if (normalizedStatus === 'offline' && !downtimeStart) {
+            downtimeStart = timestamp;
+          } else if (normalizedStatus === 'online') {
+            downtimeStart = null;
+          }
 
-          if (device.status !== normalizedStatus) {
-            db.prepare("INSERT INTO logs (device_id, status, timestamp) VALUES (?, ?, ?)").run(device.id, normalizedStatus, timestamp);
+          console.log(`[AGENT] Updating ${device.ip} (${device.name}): ${device.status} -> ${normalizedStatus} (${latency}ms)`);
+          
+          db.prepare("UPDATE devices SET last_seen = ?, status = ?, latency = ?, downtime_start = ? WHERE id = ?")
+            .run(timestamp, normalizedStatus, latency, downtimeStart, device.id);
+
+          if (device.status !== normalizedStatus || Math.abs(device.latency - latency) > 50) {
+            db.prepare("INSERT INTO logs (device_id, status, latency, timestamp) VALUES (?, ?, ?, ?)")
+              .run(device.id, normalizedStatus, latency, timestamp);
           }
           
           io.emit("device_update", {
             id: device.id,
             status: normalizedStatus,
+            latency: latency,
+            downtime_start: downtimeStart,
             timestamp: timestamp
           });
         });

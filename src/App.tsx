@@ -30,7 +30,7 @@ import {
   Area
 } from 'recharts';
 import { format } from 'date-fns';
-import { Device } from './types';
+import { Device, DeviceLog } from './types';
 import { cn } from './lib/utils';
 
 const DeviceIcon = ({ type, className }: { type: Device['type'], className?: string }) => {
@@ -49,6 +49,7 @@ export default function App() {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
+  const [selectedDeviceLogs, setSelectedDeviceLogs] = useState<DeviceLog[]>([]);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isAgentModalOpen, setIsAgentModalOpen] = useState(false);
   const [newDevice, setNewDevice] = useState({ name: '', ip: '', type: 'switch' as Device['type'], location: '' });
@@ -128,6 +129,23 @@ export default function App() {
   ];
 
   useEffect(() => {
+    if (selectedDevice) {
+      const fetchLogs = async () => {
+        try {
+          const res = await fetch(`/api/logs/${selectedDevice.id}`);
+          const data = await res.json();
+          setSelectedDeviceLogs(data);
+        } catch (err) {
+          console.error('Failed to fetch logs', err);
+        }
+      };
+      fetchLogs();
+    } else {
+      setSelectedDeviceLogs([]);
+    }
+  }, [selectedDevice]);
+
+  useEffect(() => {
     const fetchDevices = async () => {
       try {
         const res = await fetch('/api/devices');
@@ -145,10 +163,16 @@ export default function App() {
     const newSocket = io();
     setSocket(newSocket);
 
-    newSocket.on('device_update', (update: { id: number, status: Device['status'], timestamp: string }) => {
+    newSocket.on('device_update', (update: { id: number, status: Device['status'], latency: number, downtime_start: string | null, timestamp: string }) => {
       console.log('Received update:', update);
       setDevices(prev => prev.map(d => 
-        d.id === update.id ? { ...d, status: update.status, last_seen: update.timestamp } : d
+        d.id === update.id ? { 
+          ...d, 
+          status: update.status, 
+          latency: update.latency, 
+          downtime_start: update.downtime_start, 
+          last_seen: update.timestamp 
+        } : d
       ));
     });
 
@@ -178,8 +202,16 @@ const CONFIG = {
 async function ping(ip) {
   return new Promise((resolve) => {
     const cmd = process.platform === 'win32' ? \`ping -n 1 -w 1000 \${ip}\` : \`ping -c 1 -W 1 \${ip}\`;
-    exec(cmd, (error) => {
-      resolve(!error ? 'online' : 'offline');
+    exec(cmd, (error, stdout) => {
+      if (error) {
+        resolve({ status: 'offline', latency: 0 });
+      } else {
+        // Extract latency
+        let latency = 0;
+        const match = stdout.match(/time[=<](\\d+)/i);
+        if (match) latency = parseInt(match[1]);
+        resolve({ status: 'online', latency });
+      }
     });
   });
 }
@@ -188,9 +220,9 @@ async function report() {
   console.log('Scanning local network...');
   const results = [];
   for (const ip of CONFIG.DEVICES) {
-    const status = await ping(ip);
-    results.push({ ip, status });
-    console.log(\`[\${ip}] is \${status}\`);
+    const { status, latency } = await ping(ip);
+    results.push({ ip, status, latency });
+    console.log(\`[\${ip}] is \${status} (\${latency}ms)\`);
   }
 
   try {
@@ -548,13 +580,14 @@ report();
                       <DeviceIcon type={device.type} className="opacity-60" />
                       <div className="flex flex-col">
                         <span className="font-bold">{device.name}</span>
-                        {device.last_seen && (
-                          <span className="text-[9px] opacity-40 font-mono">
-                            {Math.abs(new Date().getTime() - new Date(device.last_seen).getTime()) < 300000 ? (
-                              <span className="text-emerald-600 font-bold">● AGENT ACTIVE ({device.status.toUpperCase()})</span>
-                            ) : (
-                              `LAST SEEN: ${new Date(device.last_seen).toLocaleTimeString()}`
-                            )}
+                        {device.status === 'offline' && device.downtime_start && (
+                          <span className="text-[9px] text-rose-600 font-mono font-bold ml-2">
+                            DOWN SINCE: {new Date(device.downtime_start).toLocaleTimeString()}
+                          </span>
+                        )}
+                        {device.status === 'online' && device.latency > 0 && (
+                          <span className="text-[9px] text-emerald-600 font-mono font-bold ml-2">
+                            LATENCY: {device.latency}ms
                           </span>
                         )}
                       </div>
@@ -618,7 +651,7 @@ report();
                 <div className="grid grid-cols-2 gap-4">
                   <div className="border border-[#141414] p-3 rounded bg-white">
                     <div className="text-[9px] font-mono uppercase opacity-50 mb-1">Latency</div>
-                    <div className="text-xl font-mono font-bold">14ms</div>
+                    <div className="text-xl font-mono font-bold">{selectedDevice.latency}ms</div>
                   </div>
                   <div className="border border-[#141414] p-3 rounded bg-white">
                     <div className="text-[9px] font-mono uppercase opacity-50 mb-1">Uptime</div>
@@ -631,12 +664,19 @@ report();
                     <Clock size={12} /> Recent Activity
                   </h4>
                   <div className="space-y-2">
-                    {[1, 2, 3].map(i => (
-                      <div key={i} className="text-[11px] p-2 border-b border-[#141414]/10 flex justify-between">
-                        <span className="font-mono opacity-60">12:4{i}:22</span>
-                        <span className="font-bold uppercase">Health Check OK</span>
+                    {selectedDeviceLogs.length > 0 ? selectedDeviceLogs.map(log => (
+                      <div key={log.id} className="text-[11px] p-2 border-b border-[#141414]/10 flex justify-between">
+                        <span className="font-mono opacity-60">{new Date(log.timestamp).toLocaleTimeString()}</span>
+                        <span className={cn(
+                          "font-bold uppercase",
+                          log.status === 'online' ? "text-emerald-600" : "text-rose-600"
+                        )}>
+                          {log.status} {log.latency > 0 && `(${log.latency}ms)`}
+                        </span>
                       </div>
-                    ))}
+                    )) : (
+                      <div className="text-[10px] opacity-40 italic p-2">No activity logs found.</div>
+                    )}
                   </div>
                 </section>
 
