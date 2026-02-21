@@ -114,7 +114,7 @@ async function startServer() {
       reports.forEach(report => {
         if (!report.ip || !report.status) return;
 
-        const devices = db.prepare("SELECT * FROM devices WHERE ip = ?").all() as any[];
+        const devices = db.prepare("SELECT * FROM devices WHERE ip = ?").all(report.ip) as any[];
         
         devices.forEach(device => {
           const normalizedStatus = String(report.status).toLowerCase();
