@@ -80,11 +80,13 @@ async function startServer() {
   // API Routes
   app.get("/api/devices", (req, res) => {
     const devices = db.prepare("SELECT * FROM devices").all();
+    console.log(`Fetching ${devices.length} devices`);
     res.json(devices);
   });
 
   app.post("/api/devices", (req, res) => {
     const { name, ip, type, location } = req.body;
+    console.log(`Adding device: ${name} (${ip})`);
     const info = db.prepare("INSERT INTO devices (name, ip, type, location) VALUES (?, ?, ?, ?)").run(name, ip, type, location);
     res.json({ id: info.lastInsertRowid });
   });

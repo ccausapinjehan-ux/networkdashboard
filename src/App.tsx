@@ -98,6 +98,8 @@ export default function App() {
   const handleLogout = () => {
     setIsAuthenticated(false);
     localStorage.removeItem('agp_auth');
+    setDevices([]);
+    setLoading(true);
   };
 
   const handleDeleteDevice = async (id: number) => {
@@ -165,6 +167,7 @@ export default function App() {
     if (!isAuthenticated) return;
 
     const fetchDevices = async () => {
+      setLoading(true);
       try {
         const res = await fetch('/api/devices');
         const data = await res.json();
@@ -200,7 +203,7 @@ export default function App() {
     return () => {
       newSocket.close();
     };
-  }, []);
+  }, [isAuthenticated]);
 
   const filteredDevices = devices.filter(d => 
     (d.name.toLowerCase().includes(searchQuery.toLowerCase()) || d.ip.includes(searchQuery)) &&
@@ -635,6 +638,10 @@ report();
             {loading ? (
               <div className="p-10 text-center font-mono text-xs opacity-50 uppercase animate-pulse">
                 Initializing Network Scan...
+              </div>
+            ) : filteredDevices.length === 0 ? (
+              <div className="p-20 text-center font-mono text-xs opacity-30 uppercase">
+                No active nodes detected in this sector.
               </div>
             ) : (
               <AnimatePresence mode="popLayout">
