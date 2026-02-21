@@ -1,0 +1,15 @@
+{
+  "short_name": "AG&P Monitor",
+  "name": "AG&P Americas Infrastructure Monitor",
+  "icons": [
+    {
+      "src": "https://media.licdn.com/dms/image/v2/D4D0BAQF_EJ9WP_ZXog/company-logo_200_200/company-logo_200_200/0/1738346357475/ag_p_americas_inc_logo?e=2147483647&v=beta&t=25UpHlgHLtn4pKtcfM3oX6G-fSBdHLEXaTMMws51PXc",
+      "sizes": "200x200",
+      "type": "image/png"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#e31e24",
+  "background_color": "#f4f4f4"
+}
