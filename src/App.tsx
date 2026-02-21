@@ -48,13 +48,13 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [socket, setSocket] = useState<Socket | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [filterType, setFilterType] = useState<string>('all');
   const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
   const [selectedDeviceLogs, setSelectedDeviceLogs] = useState<DeviceLog[]>([]);
   const [globalDowntimeLogs, setGlobalDowntimeLogs] = useState<(DeviceLog & { device_name: string, device_ip: string })[]>([]);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isAgentModalOpen, setIsAgentModalOpen] = useState(false);
   const [newDevice, setNewDevice] = useState({ name: '', ip: '', type: 'switch' as Device['type'], location: '' });
-  const [simulationMode, setSimulationMode] = useState(false);
 
   const fetchGlobalDowntime = async () => {
     try {
@@ -68,33 +68,7 @@ export default function App() {
 
   useEffect(() => {
     fetchGlobalDowntime();
-    const fetchSettings = async () => {
-      try {
-        const res = await fetch('/api/settings');
-        const data = await res.json();
-        setSimulationMode(data.simulation_mode);
-      } catch (err) {
-        console.error('Failed to fetch settings', err);
-      }
-    };
-    fetchSettings();
   }, []);
-
-  const toggleSimulationMode = async () => {
-    const newValue = !simulationMode;
-    try {
-      const res = await fetch('/api/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: 'simulation_mode', value: newValue }),
-      });
-      if (res.ok) {
-        setSimulationMode(newValue);
-      }
-    } catch (err) {
-      console.error('Failed to update settings', err);
-    }
-  };
 
   const handleDeleteDevice = async (id: number) => {
     try {
@@ -197,8 +171,8 @@ export default function App() {
   }, []);
 
   const filteredDevices = devices.filter(d => 
-    d.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    d.ip.includes(searchQuery)
+    (d.name.toLowerCase().includes(searchQuery.toLowerCase()) || d.ip.includes(searchQuery)) &&
+    (filterType === 'all' || d.type === filterType)
   );
 
   const agentScript = `
@@ -272,14 +246,18 @@ report();
   return (
     <div className="min-h-screen flex flex-col">
       {/* Header */}
-      <header className="border-b border-[#141414] px-6 py-4 flex justify-between items-center bg-[#E4E3E0] sticky top-0 z-10">
-        <div className="flex items-center gap-3">
-          <div className="bg-[#141414] text-[#E4E3E0] p-1.5 rounded">
-            <ShieldCheck size={24} />
-          </div>
+      <header className="border-b border-brand-dark px-6 py-4 flex justify-between items-center bg-white sticky top-0 z-10">
+        <div className="flex items-center gap-4">
+          <img 
+            src="https://media.licdn.com/dms/image/v2/D4D0BAQF_EJ9WP_ZXog/company-logo_200_200/company-logo_200_200/0/1738346357475/ag_p_americas_inc_logo?e=2147483647&v=beta&t=25UpHlgHLtn4pKtcfM3oX6G-fSBdHLEXaTMMws51PXc" 
+            alt="AG&P Americas Logo" 
+            className="h-10 w-auto"
+            referrerPolicy="no-referrer"
+          />
+          <div className="h-8 w-[1px] bg-brand-dark/20" />
           <div>
-            <h1 className="text-xl font-bold tracking-tight uppercase">NetWatch Pro</h1>
-            <p className="text-[10px] font-mono opacity-60 uppercase tracking-widest">Enterprise Infrastructure Monitor</p>
+            <h1 className="text-xl font-bold tracking-tight uppercase text-brand-dark">Infrastructure Monitor</h1>
+            <p className="text-[10px] font-mono opacity-60 uppercase tracking-widest">AG&P Americas Inc. • Enterprise Network</p>
           </div>
         </div>
 
@@ -287,14 +265,14 @@ report();
           <div className="flex gap-4 text-[11px] font-mono uppercase">
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span>System Operational</span>
+              <span className="font-bold">System Operational</span>
             </div>
             <div className="opacity-40">|</div>
-            <div>{format(new Date(), 'yyyy-MM-dd HH:mm:ss')}</div>
+            <div className="opacity-60">{format(new Date(), 'yyyy-MM-dd HH:mm:ss')}</div>
           </div>
           <button 
             onClick={() => setIsAddModalOpen(true)}
-            className="bg-[#141414] text-[#E4E3E0] px-4 py-2 rounded text-xs font-bold uppercase hover:opacity-90 transition-opacity flex items-center gap-2"
+            className="bg-brand-red text-white px-4 py-2 rounded text-xs font-bold uppercase hover:bg-brand-red/90 transition-all flex items-center gap-2 shadow-sm"
           >
             <Plus size={14} /> Add Device
           </button>
@@ -432,102 +410,73 @@ report();
 
       <main className="flex-1 flex overflow-hidden">
         {/* Sidebar / Stats */}
-        <aside className="w-72 border-r border-[#141414] p-6 flex flex-col gap-8 bg-[#DEDDD9]">
+        <aside className="w-72 border-r border-brand-dark/10 p-6 flex flex-col gap-8 bg-white">
           <section>
-            <h2 className="text-[11px] font-serif italic uppercase opacity-50 mb-4">Network Overview</h2>
+            <h2 className="text-[10px] font-bold uppercase tracking-widest opacity-40 mb-4">Network Overview</h2>
             <div className="grid grid-cols-1 gap-4">
-              <div className="border border-[#141414] p-4 rounded bg-white/50">
+              <div className="border border-brand-dark/10 p-4 rounded bg-brand-gray">
                 <div className="flex justify-between items-start mb-2">
                   <span className="text-[10px] font-mono uppercase opacity-60">Total Nodes</span>
                   <DbIcon size={14} className="opacity-40" />
                 </div>
-                <div className="text-3xl font-bold font-mono">{stats.total}</div>
+                <div className="text-3xl font-bold font-mono text-brand-dark">{stats.total}</div>
               </div>
-              <div className="border border-[#141414] p-4 rounded bg-emerald-50">
+              <div className="border border-emerald-100 p-4 rounded bg-emerald-50/30">
                 <div className="flex justify-between items-start mb-2">
                   <span className="text-[10px] font-mono uppercase opacity-60 text-emerald-800">Online</span>
                   <CheckCircle2 size={14} className="text-emerald-500" />
                 </div>
                 <div className="text-3xl font-bold font-mono text-emerald-900">{stats.online}</div>
               </div>
-              <div className="border border-[#141414] p-4 rounded bg-rose-50">
+              <div className="border border-brand-red/10 p-4 rounded bg-brand-red/5">
                 <div className="flex justify-between items-start mb-2">
-                  <span className="text-[10px] font-mono uppercase opacity-60 text-rose-800">Critical</span>
-                  <AlertTriangle size={14} className="text-rose-500" />
+                  <span className="text-[10px] font-mono uppercase opacity-60 text-brand-red">Critical</span>
+                  <AlertTriangle size={14} className="text-brand-red" />
                 </div>
-                <div className="text-3xl font-bold font-mono text-rose-900">{stats.offline}</div>
+                <div className="text-3xl font-bold font-mono text-brand-red">{stats.offline}</div>
               </div>
             </div>
           </section>
 
           <section className="flex-1">
-            <h2 className="text-[11px] font-serif italic uppercase opacity-50 mb-4">Traffic Load</h2>
+            <h2 className="text-[10px] font-bold uppercase tracking-widest opacity-40 mb-4">Traffic Load</h2>
             <div className="h-40 w-full">
               <ResponsiveContainer width="100%" height="100%" minHeight={160}>
                 <AreaChart data={chartData}>
                   <defs>
                     <linearGradient id="colorTraffic" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#141414" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="#141414" stopOpacity={0}/>
+                      <stop offset="5%" stopColor="#e31e24" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="#e31e24" stopOpacity={0}/>
                     </linearGradient>
                   </defs>
-                  <Area type="monotone" dataKey="traffic" stroke="#141414" fillOpacity={1} fill="url(#colorTraffic)" />
+                  <Area type="monotone" dataKey="traffic" stroke="#e31e24" fillOpacity={1} fill="url(#colorTraffic)" />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
             <div className="mt-4 space-y-2">
               <div className="flex justify-between text-[10px] font-mono uppercase">
                 <span>Peak Load</span>
-                <span>92.4 Gbps</span>
+                <span className="font-bold">92.4 Gbps</span>
               </div>
-              <div className="w-full bg-[#141414]/10 h-1 rounded-full overflow-hidden">
-                <div className="bg-[#141414] h-full w-[85%]" />
+              <div className="w-full bg-brand-dark/10 h-1 rounded-full overflow-hidden">
+                <div className="bg-brand-red h-full w-[85%]" />
               </div>
             </div>
           </section>
 
-          <section className="border-t border-[#141414] pt-6">
-            <h2 className="text-[11px] font-serif italic uppercase opacity-50 mb-4">System Settings</h2>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-[10px] font-mono uppercase">
-                  <Activity size={14} className={simulationMode ? "text-amber-600" : "opacity-40"} />
-                  <span>Simulation Mode</span>
-                </div>
-                <button 
-                  onClick={toggleSimulationMode}
-                  className={cn(
-                    "w-8 h-4 rounded-full relative transition-colors duration-200 border border-[#141414]",
-                    simulationMode ? "bg-amber-500" : "bg-white"
-                  )}
-                >
-                  <motion.div 
-                    animate={{ x: simulationMode ? 16 : 0 }}
-                    className="absolute top-0.5 left-0.5 w-2.5 h-2.5 bg-[#141414] rounded-full"
-                  />
-                </button>
-              </div>
-              <p className="text-[9px] font-mono opacity-50 leading-tight">
-                {simulationMode 
-                  ? "ACTIVE: Private IPs will appear ONLINE for demonstration purposes." 
-                  : "INACTIVE: Real ICMP ping responses are required for status updates."}
-              </p>
-            </div>
-          </section>
-
-          <section className="border-t border-[#141414] pt-6">
-            <h2 className="text-[11px] font-serif italic uppercase opacity-50 mb-4">Remote Agent</h2>
+          <section className="border-t border-brand-dark/10 pt-6">
+            <h2 className="text-[10px] font-bold uppercase tracking-widest opacity-40 mb-4">Remote Agent</h2>
             <button 
               onClick={() => setIsAgentModalOpen(true)}
-              className="w-full border border-[#141414] p-3 rounded bg-white hover:bg-[#141414] hover:text-white transition-all group"
+              className="w-full border border-brand-dark/10 p-3 rounded bg-white hover:bg-brand-dark hover:text-white transition-all group shadow-sm"
             >
               <div className="flex items-center gap-2 text-[10px] font-mono uppercase font-bold">
-                <Terminal size={14} className="group-hover:text-emerald-400" />
+                <Terminal size={14} className="group-hover:text-brand-red" />
                 <span>Get Agent Script</span>
               </div>
             </button>
             <p className="text-[9px] font-mono opacity-50 mt-2 leading-tight">
-              Run a small script on your local PC to bridge your local network to this cloud dashboard.
+              Bridge your local network to the AG&P Americas cloud dashboard.
             </p>
           </section>
 
@@ -541,22 +490,30 @@ report();
 
         {/* Main Content */}
         <section className="flex-1 flex flex-col bg-white">
-          <div className="p-4 border-b border-[#141414] flex gap-4">
+          <div className="p-4 border-b border-brand-dark/10 flex gap-4 bg-brand-gray/50">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 opacity-30" size={16} />
               <input 
                 type="text" 
                 placeholder="SEARCH BY DEVICE NAME OR IP..."
-                className="w-full pl-10 pr-4 py-2 bg-[#F5F5F5] border border-[#141414] rounded text-xs font-mono uppercase focus:outline-none focus:ring-1 focus:ring-[#141414]"
+                className="w-full pl-10 pr-4 py-2 bg-white border border-brand-dark/10 rounded text-xs font-mono uppercase focus:outline-none focus:ring-1 focus:ring-brand-red/20"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
             <div className="flex gap-2">
-              <button className="px-3 py-2 border border-[#141414] rounded text-[10px] font-mono uppercase hover:bg-[#141414] hover:text-white transition-colors">
-                Filter: All
-              </button>
-              <button className="px-3 py-2 border border-[#141414] rounded text-[10px] font-mono uppercase hover:bg-[#141414] hover:text-white transition-colors">
+              <select 
+                value={filterType}
+                onChange={(e) => setFilterType(e.target.value)}
+                className="px-3 py-2 border border-brand-dark/10 rounded text-[10px] font-mono uppercase bg-white focus:outline-none"
+              >
+                <option value="all">Filter: All</option>
+                <option value="switch">Switch</option>
+                <option value="router">Router</option>
+                <option value="server">Server</option>
+                <option value="ap">Access Point</option>
+              </select>
+              <button className="px-3 py-2 border border-brand-dark/10 rounded text-[10px] font-mono uppercase hover:bg-brand-dark hover:text-white transition-colors">
                 Export CSV
               </button>
             </div>
@@ -564,14 +521,14 @@ report();
 
           <div className="flex-1 overflow-auto">
             {/* Table Header */}
-            <div className="data-row bg-[#F5F5F5] sticky top-0 z-[5] font-bold">
-              <div className="col-header">ID</div>
-              <div className="col-header">Device Name</div>
-              <div className="col-header">IP Address</div>
-              <div className="col-header">Type</div>
-              <div className="col-header">Location</div>
-              <div className="col-header">Status</div>
-              <div className="col-header"></div>
+            <div className="data-row bg-brand-gray sticky top-0 z-[5] font-bold border-b-2 border-brand-dark">
+              <div className="col-header border-none bg-transparent">ID</div>
+              <div className="col-header border-none bg-transparent">Device Name</div>
+              <div className="col-header border-none bg-transparent">IP Address</div>
+              <div className="col-header border-none bg-transparent">Type</div>
+              <div className="col-header border-none bg-transparent">Location</div>
+              <div className="col-header border-none bg-transparent">Status</div>
+              <div className="col-header border-none bg-transparent"></div>
             </div>
 
             {loading ? (
@@ -639,32 +596,32 @@ report();
           </div>
 
           {/* Downtime History Section */}
-          <div className="h-1/3 border-t border-[#141414] flex flex-col overflow-hidden bg-[#F5F5F5]/50">
-            <div className="p-3 border-b border-[#141414] bg-[#141414]/5 flex items-center justify-between">
+          <div className="h-1/3 border-t border-brand-dark/10 flex flex-col overflow-hidden bg-brand-gray/30">
+            <div className="p-3 border-b border-brand-dark/10 bg-brand-dark/5 flex items-center justify-between">
               <h3 className="text-[10px] font-bold uppercase tracking-widest flex items-center gap-2">
-                <AlertTriangle size={14} className="text-rose-600" /> Global Downtime History
+                <AlertTriangle size={14} className="text-brand-red" /> Global Downtime History
               </h3>
               <span className="text-[9px] font-mono opacity-40 uppercase">Last 100 Incidents</span>
             </div>
             
             <div className="flex-1 overflow-auto">
-              <div className="grid grid-cols-[1fr_1fr_1fr_1fr] border-b border-[#141414]/10 bg-rose-50/30 text-[9px] font-bold uppercase tracking-wider p-2 sticky top-0 z-[1]">
+              <div className="grid grid-cols-[1fr_1fr_1fr_1fr] border-b border-brand-dark/10 bg-brand-red/5 text-[9px] font-bold uppercase tracking-wider p-2 sticky top-0 z-[1]">
                 <div>Device Name</div>
                 <div>IP Address</div>
                 <div>Date & Time</div>
                 <div className="text-right">Event</div>
               </div>
               
-              <div className="divide-y divide-[#141414]/5">
+              <div className="divide-y divide-brand-dark/5">
                 {globalDowntimeLogs.length > 0 ? globalDowntimeLogs.map((log) => (
-                  <div key={log.id} className="grid grid-cols-[1fr_1fr_1fr_1fr] items-center p-2 hover:bg-rose-50/50 transition-colors">
+                  <div key={log.id} className="grid grid-cols-[1fr_1fr_1fr_1fr] items-center p-2 hover:bg-brand-red/5 transition-colors">
                     <div className="text-xs font-bold">{log.device_name}</div>
                     <div className="font-mono text-[10px] opacity-60">{log.device_ip}</div>
                     <div className="font-mono text-[10px] opacity-60">
                       {format(new Date(log.timestamp), 'MMM dd, yyyy HH:mm:ss')}
                     </div>
                     <div className="text-right">
-                      <span className="text-[8px] font-bold uppercase text-rose-600 bg-rose-100 px-2 py-0.5 rounded border border-rose-200">
+                      <span className="text-[8px] font-bold uppercase text-brand-red bg-brand-red/10 px-2 py-0.5 rounded border border-brand-red/20">
                         OFFLINE
                       </span>
                     </div>
@@ -687,44 +644,41 @@ report();
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="w-96 border-l border-[#141414] bg-[#E4E3E0] p-6 shadow-2xl z-20"
+              className="w-96 border-l border-brand-dark/20 bg-white p-6 shadow-2xl z-20"
             >
-              <div className="flex justify-between items-start mb-8">
+              <div className="flex justify-between items-center mb-8">
                 <div>
-                  <h3 className="text-lg font-bold uppercase tracking-tight">{selectedDevice.name}</h3>
-                  <p className="text-[10px] font-mono opacity-60">{selectedDevice.ip}</p>
+                  <h2 className="text-xl font-bold uppercase tracking-tight text-brand-dark">{selectedDevice.name}</h2>
+                  <p className="text-[10px] font-mono opacity-40 uppercase">{selectedDevice.ip}</p>
                 </div>
-                <button 
-                  onClick={() => setSelectedDevice(null)}
-                  className="p-1 hover:bg-[#141414]/10 rounded transition-colors"
-                >
+                <button onClick={() => setSelectedDevice(null)} className="p-2 hover:bg-brand-gray rounded-full transition-colors">
                   <Plus className="rotate-45" size={20} />
                 </button>
               </div>
 
               <div className="space-y-6">
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="border border-[#141414] p-3 rounded bg-white">
-                    <div className="text-[9px] font-mono uppercase opacity-50 mb-1">Latency</div>
-                    <div className="text-xl font-mono font-bold">{selectedDevice.latency}ms</div>
+                  <div className="bg-brand-gray p-4 rounded border border-brand-dark/5">
+                    <span className="text-[9px] font-mono uppercase opacity-40 block mb-1 text-brand-dark">Latency</span>
+                    <div className="text-xl font-bold font-mono text-brand-dark">{selectedDevice.latency}ms</div>
                   </div>
-                  <div className="border border-[#141414] p-3 rounded bg-white">
-                    <div className="text-[9px] font-mono uppercase opacity-50 mb-1">Uptime</div>
-                    <div className="text-xl font-mono font-bold">99.8%</div>
+                  <div className="bg-brand-gray p-4 rounded border border-brand-dark/5">
+                    <span className="text-[9px] font-mono uppercase opacity-40 block mb-1 text-brand-dark">Uptime</span>
+                    <div className="text-xl font-bold font-mono text-emerald-600">99.8%</div>
                   </div>
                 </div>
 
                 <section>
-                  <h4 className="text-[10px] font-mono uppercase opacity-50 mb-3 flex items-center gap-2">
+                  <h4 className="text-[10px] font-bold uppercase tracking-widest opacity-40 mb-4 flex items-center gap-2">
                     <Clock size={12} /> Recent Activity
                   </h4>
                   <div className="space-y-2">
                     {selectedDeviceLogs.length > 0 ? selectedDeviceLogs.slice(0, 5).map(log => (
-                      <div key={log.id} className="text-[11px] p-2 border-b border-[#141414]/10 flex justify-between">
+                      <div key={log.id} className="text-[11px] p-2 border-b border-brand-dark/5 flex justify-between items-center">
                         <span className="font-mono opacity-60">{new Date(log.timestamp).toLocaleTimeString()}</span>
                         <span className={cn(
-                          "font-bold uppercase",
-                          log.status === 'online' ? "text-emerald-600" : "text-rose-600"
+                          "font-bold uppercase text-[9px] px-2 py-0.5 rounded",
+                          log.status === 'online' ? "text-emerald-700 bg-emerald-50" : "text-brand-red bg-brand-red/5"
                         )}>
                           {log.status} {log.latency > 0 && `(${log.latency}ms)`}
                         </span>
@@ -736,23 +690,23 @@ report();
                 </section>
 
                 <section>
-                  <h4 className="text-[10px] font-mono uppercase opacity-50 mb-3 flex items-center gap-2">
+                  <h4 className="text-[10px] font-bold uppercase tracking-widest opacity-40 mb-4 flex items-center gap-2">
                     <Cpu size={12} /> Performance Metrics
                   </h4>
                   <div className="h-32 w-full">
                     <ResponsiveContainer width="100%" height="100%" minHeight={128}>
                       <LineChart data={chartData}>
-                        <Line type="monotone" dataKey="latency" stroke="#141414" strokeWidth={2} dot={false} />
+                        <Line type="monotone" dataKey="latency" stroke="#e31e24" strokeWidth={2} dot={false} />
                       </LineChart>
                     </ResponsiveContainer>
                   </div>
                 </section>
 
                 <div className="pt-6 flex gap-2">
-                  <button className="flex-1 bg-[#141414] text-white py-2 rounded text-[10px] font-bold uppercase">
+                  <button className="flex-1 bg-brand-dark text-white py-2 rounded text-[10px] font-bold uppercase hover:bg-brand-red transition-colors">
                     Remote Access
                   </button>
-                  <button className="flex-1 border border-[#141414] py-2 rounded text-[10px] font-bold uppercase">
+                  <button className="flex-1 border border-brand-dark py-2 rounded text-[10px] font-bold uppercase hover:bg-brand-gray transition-colors">
                     Diagnostics
                   </button>
                 </div>
@@ -763,7 +717,7 @@ report();
       </main>
 
       {/* Footer / Status Bar */}
-      <footer className="border-t border-[#141414] px-4 py-2 bg-[#141414] text-[#E4E3E0] flex justify-between items-center text-[10px] font-mono uppercase tracking-wider">
+      <footer className="border-t border-brand-dark px-4 py-2 bg-brand-dark text-white flex justify-between items-center text-[10px] font-mono uppercase tracking-wider">
         <div className="flex gap-6">
           <div className="flex items-center gap-2">
             <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
@@ -775,7 +729,7 @@ report();
           </div>
         </div>
         <div className="opacity-50">
-          BUILD V1.0.4-STABLE // SECURE CONNECTION
+          AG&P AMERICAS INC. // SECURE NETWORK MONITOR V1.0.4
         </div>
       </footer>
     </div>

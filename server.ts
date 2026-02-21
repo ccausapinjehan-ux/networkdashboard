@@ -36,13 +36,6 @@ try {
     FOREIGN KEY(device_id) REFERENCES devices(id)
   );
 
-  CREATE TABLE IF NOT EXISTS settings (
-    key TEXT PRIMARY KEY,
-    value TEXT
-  );
-
-  INSERT OR IGNORE INTO settings (key, value) VALUES ('simulation_mode', 'false');
-
   -- Ensure columns exist for existing databases
   ALTER TABLE devices ADD COLUMN latency INTEGER DEFAULT 0;
   ALTER TABLE devices ADD COLUMN downtime_start DATETIME;
@@ -112,21 +105,6 @@ async function startServer() {
     res.json(logs);
   });
 
-  app.get("/api/settings", (req, res) => {
-    const settings = db.prepare("SELECT * FROM settings").all();
-    const settingsObj = settings.reduce((acc: any, curr: any) => {
-      acc[curr.key] = curr.value === 'true';
-      return acc;
-    }, {});
-    res.json(settingsObj);
-  });
-
-  app.post("/api/settings", (req, res) => {
-    const { key, value } = req.body;
-    db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)").run(key, String(value));
-    res.json({ success: true });
-  });
-
   app.post("/api/agent/report", (req, res) => {
     try {
       const reports = req.body; // Array of { ip: string, status: string, latency: number }
@@ -181,9 +159,6 @@ async function startServer() {
 
   // Real monitoring logic
   setInterval(async () => {
-    const simulationMode = db.prepare("SELECT value FROM settings WHERE key = 'simulation_mode'").get() as { value: string };
-    const isSimulation = simulationMode?.value === 'true';
-
     const devices = db.prepare("SELECT * FROM devices").all() as any[];
     const now = new Date();
 
@@ -191,7 +166,7 @@ async function startServer() {
       try {
         // Skip server-side ping if device was updated by an agent in the last 10 minutes
         // This prevents clock drift from causing flickering
-        if (device.last_seen && !isSimulation) {
+        if (device.last_seen) {
           const lastSeen = new Date(device.last_seen); 
           const diffSeconds = (now.getTime() - lastSeen.getTime()) / 1000;
           if (diffSeconds < 600) continue; 
@@ -199,16 +174,10 @@ async function startServer() {
 
         let newStatus: string;
         
-        if (isSimulation) {
-          // In simulation mode, we pretend private IPs are online
-          // or just make everything online for the demo feel
-          newStatus = "online";
-        } else {
-          const res = await ping.promise.probe(device.ip, {
-            timeout: 2,
-          });
-          newStatus = res.alive ? "online" : "offline";
-        }
+        const res = await ping.promise.probe(device.ip, {
+          timeout: 2,
+        });
+        newStatus = res.alive ? "online" : "offline";
         
         if (newStatus !== device.status) {
           db.prepare("UPDATE devices SET status = ?, last_seen = ? WHERE id = ?").run(newStatus, now.toISOString(), device.id);
