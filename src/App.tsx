@@ -200,7 +200,12 @@ async function report() {
       body: JSON.stringify(results),
       redirect: 'follow'
     });
-    console.log(\`Report sent. Status: \${response.status}\`);
+    if (response.status !== 200) {
+      const errData = await response.json();
+      console.error(\`Server Error (\${response.status}):\`, errData.details || errData.error);
+    } else {
+      console.log(\`Report sent. Status: \${response.status}\`);
+    }
   } catch (e) {
     console.error(\`Error sending report: \${e.message}\`);
   }
@@ -545,7 +550,7 @@ report();
                         <span className="font-bold">{device.name}</span>
                         {device.last_seen && (
                           <span className="text-[9px] opacity-40 font-mono">
-                            {Math.abs(new Date().getTime() - new Date(device.last_seen).getTime()) < 60000 ? (
+                            {Math.abs(new Date().getTime() - new Date(device.last_seen).getTime()) < 300000 ? (
                               <span className="text-emerald-600 font-bold">● AGENT ACTIVE ({device.status.toUpperCase()})</span>
                             ) : (
                               `LAST SEEN: ${new Date(device.last_seen).toLocaleTimeString()}`

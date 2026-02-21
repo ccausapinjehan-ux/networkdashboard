@@ -104,37 +104,43 @@ async function startServer() {
   });
 
   app.post("/api/agent/report", (req, res) => {
-    const reports = req.body; // Array of { ip: string, status: string }
-    const now = new Date().toISOString();
-    
-    if (!Array.isArray(reports)) {
-      return res.status(400).json({ error: "Invalid payload" });
-    }
-
-    reports.forEach(report => {
-      const devices = db.prepare("SELECT * FROM devices WHERE ip = ?").all() as any[];
+    try {
+      const reports = req.body; // Array of { ip: string, status: string }
       
-      devices.forEach(device => {
-        const normalizedStatus = report.status.toLowerCase();
-        console.log(`[AGENT REPORT] Device ${device.id} (${device.ip}): ${device.status} -> ${normalizedStatus}`);
-        
-        // Always update last_seen and status when agent reports
-        db.prepare("UPDATE devices SET last_seen = ?, status = ? WHERE id = ?").run(now, normalizedStatus, device.id);
+      if (!Array.isArray(reports)) {
+        return res.status(400).json({ error: "Invalid payload" });
+      }
 
-        // Log if status changed
-        if (device.status !== normalizedStatus) {
-          db.prepare("INSERT INTO logs (device_id, status, timestamp) VALUES (?, ?, ?)").run(device.id, normalizedStatus, now);
-        }
+      reports.forEach(report => {
+        if (!report.ip || !report.status) return;
+
+        const devices = db.prepare("SELECT * FROM devices WHERE ip = ?").all() as any[];
         
-        io.emit("device_update", {
-          id: device.id,
-          status: normalizedStatus,
-          timestamp: now
+        devices.forEach(device => {
+          const normalizedStatus = String(report.status).toLowerCase();
+          const timestamp = new Date().toISOString();
+          
+          console.log(`[AGENT] Updating ${device.ip} (${device.name}): ${device.status} -> ${normalizedStatus}`);
+          
+          db.prepare("UPDATE devices SET last_seen = ?, status = ? WHERE id = ?").run(timestamp, normalizedStatus, device.id);
+
+          if (device.status !== normalizedStatus) {
+            db.prepare("INSERT INTO logs (device_id, status, timestamp) VALUES (?, ?, ?)").run(device.id, normalizedStatus, timestamp);
+          }
+          
+          io.emit("device_update", {
+            id: device.id,
+            status: normalizedStatus,
+            timestamp: timestamp
+          });
         });
       });
-    });
 
-    res.json({ success: true });
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error in /api/agent/report:", error);
+      res.status(500).json({ error: "Internal Server Error", details: error instanceof Error ? error.message : String(error) });
+    }
   });
 
   // Real monitoring logic
