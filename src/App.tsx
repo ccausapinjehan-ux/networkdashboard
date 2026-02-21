@@ -411,7 +411,7 @@ report();
           <section className="flex-1">
             <h2 className="text-[11px] font-serif italic uppercase opacity-50 mb-4">Traffic Load</h2>
             <div className="h-40 w-full">
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%" minHeight={160}>
                 <AreaChart data={chartData}>
                   <defs>
                     <linearGradient id="colorTraffic" x1="0" y1="0" x2="0" y2="1">
@@ -640,7 +640,7 @@ report();
                     <Cpu size={12} /> Performance Metrics
                   </h4>
                   <div className="h-32 w-full">
-                    <ResponsiveContainer width="100%" height="100%">
+                    <ResponsiveContainer width="100%" height="100%" minHeight={128}>
                       <LineChart data={chartData}>
                         <Line type="monotone" dataKey="latency" stroke="#141414" strokeWidth={2} dot={false} />
                       </LineChart>
