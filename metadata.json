@@ -1,0 +1,5 @@
+{
+  "name": "NetWatch Pro",
+  "description": "Professional network monitoring dashboard for tracking device uptime, switches, and infrastructure health.",
+  "requestFramePermissions": []
+}
