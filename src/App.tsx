@@ -654,21 +654,24 @@ report();
               <section>
                 <h2 className="text-[10px] font-bold uppercase tracking-widest opacity-40 mb-4">Network Overview</h2>
                 <div className="grid grid-cols-1 gap-4">
-                  <div className="border border-[var(--border-color)] p-4 rounded bg-[var(--bg-main)]">
+                  <div className="border border-[var(--border-color)] p-4 rounded bg-[var(--bg-main)] relative overflow-hidden">
+                    <div className="absolute top-0 left-0 w-1 h-full bg-brand-dark opacity-20 dark:bg-white/20" />
                     <div className="flex justify-between items-start mb-2">
                       <span className="text-[10px] font-mono uppercase opacity-60">Total Nodes</span>
                       <DbIcon size={14} className="opacity-40" />
                     </div>
                     <div className="text-3xl font-bold font-mono">{stats.total}</div>
                   </div>
-                  <div className="border border-emerald-200 dark:border-emerald-800/50 p-4 rounded bg-emerald-100/10 dark:bg-emerald-900/20">
+                  <div className="border border-emerald-200 dark:border-emerald-500/20 p-4 rounded bg-white dark:bg-emerald-500/5 shadow-sm relative overflow-hidden">
+                    <div className="absolute top-0 left-0 w-1 h-full bg-emerald-500" />
                     <div className="flex justify-between items-start mb-2">
-                      <span className="text-[10px] font-mono uppercase font-bold text-emerald-700 dark:text-emerald-400">Online</span>
-                      <CheckCircle2 size={14} className="text-emerald-600 dark:text-emerald-500" />
+                      <span className="text-[10px] font-mono uppercase font-bold text-emerald-600 dark:text-emerald-400">Online</span>
+                      <CheckCircle2 size={14} className="text-emerald-500" />
                     </div>
-                    <div className="text-3xl font-bold font-mono text-emerald-800 dark:text-emerald-300">{stats.online}</div>
+                    <div className="text-3xl font-bold font-mono text-emerald-700 dark:text-emerald-300">{stats.online}</div>
                   </div>
-                  <div className="border border-brand-red/10 p-4 rounded bg-brand-red/5">
+                  <div className="border border-brand-red/10 p-4 rounded bg-brand-red/5 relative overflow-hidden">
+                    <div className="absolute top-0 left-0 w-1 h-full bg-brand-red" />
                     <div className="flex justify-between items-start mb-2">
                       <span className="text-[10px] font-mono uppercase opacity-60 text-brand-red">Critical</span>
                       <AlertTriangle size={14} className="text-brand-red" />
@@ -770,7 +773,7 @@ report();
                       <motion.div 
                         layout
                         key={device.id} 
-                        className="data-row flex flex-col sm:grid sm:grid-cols-[40px_1.5fr_1fr_1fr_1fr_100px_40px] gap-2 sm:gap-0 p-4 sm:p-3 border-b border-[var(--border-color)]"
+                        className="data-row data-row-interactive flex flex-col sm:grid sm:grid-cols-[40px_1.5fr_1fr_1fr_1fr_100px_40px] gap-2 sm:gap-0 p-4 sm:p-3 border-b border-[var(--border-color)]"
                         onClick={() => setSelectedDevice(device)}
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
@@ -801,9 +804,9 @@ report();
                         <div className="text-[10px] font-mono opacity-60">{device.location || 'N/A'}</div>
                         <div>
                           <span className={cn(
-                            "text-[9px] font-bold uppercase px-2 py-0.5 rounded border",
+                            "text-[9px] font-bold uppercase px-2 py-0.5 rounded border shadow-sm transition-all",
                             device.status === 'online' 
-                              ? "text-emerald-700 bg-emerald-100/50 border-emerald-300 dark:bg-emerald-900/30 dark:border-emerald-700 dark:text-emerald-400" 
+                              ? "text-emerald-700 bg-emerald-100/50 border-emerald-300 dark:bg-emerald-500/20 dark:border-emerald-500/30 dark:text-emerald-400" 
                               : "text-brand-red bg-brand-red/5 border-brand-red/20"
                           )}>
                             {device.status} {device.latency > 0 && `(${device.latency}ms)`}
@@ -905,8 +908,8 @@ report();
                   <div className="flex items-center gap-2">
                     <p className="text-[10px] font-mono opacity-40 uppercase">{selectedDevice.ip}</p>
                     <span className={cn(
-                      "text-[9px] font-bold px-1.5 py-0.5 rounded",
-                      selectedDevice.status === 'online' ? "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10" : "text-brand-red bg-brand-red/10"
+                      "text-[9px] font-bold px-1.5 py-0.5 rounded shadow-sm",
+                      selectedDevice.status === 'online' ? "text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20" : "text-brand-red bg-brand-red/10 border border-brand-red/20"
                     )}>
                       {selectedDevice.status === 'online' ? `${selectedDevice.latency}ms` : 'OFFLINE'}
                     </span>
@@ -938,8 +941,8 @@ report();
                       <div key={log.id} className="text-[11px] p-2 border-b border-[var(--border-color)] flex justify-between items-center">
                         <span className="font-mono opacity-60">{new Date(log.timestamp).toLocaleTimeString()}</span>
                         <span className={cn(
-                          "font-bold uppercase text-[9px] px-2 py-0.5 rounded",
-                          log.status === 'online' ? "text-emerald-700 bg-emerald-50 dark:bg-emerald-900/20 dark:text-emerald-400" : "text-brand-red bg-brand-red/5"
+                          "font-bold uppercase text-[9px] px-2 py-0.5 rounded shadow-sm border",
+                          log.status === 'online' ? "text-emerald-700 bg-emerald-50 border-emerald-200 dark:bg-emerald-500/10 dark:border-emerald-500/20 dark:text-emerald-400" : "text-brand-red bg-brand-red/5 border-brand-red/20"
                         )}>
                           {log.status} ({log.latency}ms)
                         </span>
