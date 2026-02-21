@@ -100,6 +100,18 @@ async function startServer() {
     res.json(logs);
   });
 
+  app.get("/api/logs-global/downtime", (req, res) => {
+    const logs = db.prepare(`
+      SELECT logs.*, devices.name as device_name, devices.ip as device_ip 
+      FROM logs 
+      JOIN devices ON logs.device_id = devices.id 
+      WHERE logs.status = 'offline' 
+      ORDER BY logs.timestamp DESC 
+      LIMIT 100
+    `).all();
+    res.json(logs);
+  });
+
   app.get("/api/settings", (req, res) => {
     const settings = db.prepare("SELECT * FROM settings").all();
     const settingsObj = settings.reduce((acc: any, curr: any) => {

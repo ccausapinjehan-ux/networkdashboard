@@ -50,12 +50,24 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
   const [selectedDeviceLogs, setSelectedDeviceLogs] = useState<DeviceLog[]>([]);
+  const [globalDowntimeLogs, setGlobalDowntimeLogs] = useState<(DeviceLog & { device_name: string, device_ip: string })[]>([]);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isAgentModalOpen, setIsAgentModalOpen] = useState(false);
   const [newDevice, setNewDevice] = useState({ name: '', ip: '', type: 'switch' as Device['type'], location: '' });
   const [simulationMode, setSimulationMode] = useState(false);
 
+  const fetchGlobalDowntime = async () => {
+    try {
+      const res = await fetch('/api/logs-global/downtime');
+      const data = await res.json();
+      setGlobalDowntimeLogs(data);
+    } catch (err) {
+      console.error('Failed to fetch global downtime logs', err);
+    }
+  };
+
   useEffect(() => {
+    fetchGlobalDowntime();
     const fetchSettings = async () => {
       try {
         const res = await fetch('/api/settings');
@@ -174,6 +186,9 @@ export default function App() {
           last_seen: update.timestamp 
         } : d
       ));
+      if (update.status === 'offline') {
+        fetchGlobalDowntime();
+      }
     });
 
     return () => {
@@ -208,8 +223,8 @@ async function ping(ip) {
       } else {
         // Extract latency
         let latency = 0;
-        const match = stdout.match(/time[=<](\\d+)/i);
-        if (match) latency = parseInt(match[1]);
+        const match = stdout.match(/time[=<](\d+(?:\.\d+)?)/i);
+        if (match) latency = Math.round(parseFloat(match[1]));
         resolve({ status: 'online', latency });
       }
     });
@@ -622,6 +637,46 @@ report();
               </AnimatePresence>
             )}
           </div>
+
+          {/* Downtime History Section */}
+          <div className="h-1/3 border-t border-[#141414] flex flex-col overflow-hidden bg-[#F5F5F5]/50">
+            <div className="p-3 border-b border-[#141414] bg-[#141414]/5 flex items-center justify-between">
+              <h3 className="text-[10px] font-bold uppercase tracking-widest flex items-center gap-2">
+                <AlertTriangle size={14} className="text-rose-600" /> Global Downtime History
+              </h3>
+              <span className="text-[9px] font-mono opacity-40 uppercase">Last 100 Incidents</span>
+            </div>
+            
+            <div className="flex-1 overflow-auto">
+              <div className="grid grid-cols-[1fr_1fr_1fr_1fr] border-b border-[#141414]/10 bg-rose-50/30 text-[9px] font-bold uppercase tracking-wider p-2 sticky top-0 z-[1]">
+                <div>Device Name</div>
+                <div>IP Address</div>
+                <div>Date & Time</div>
+                <div className="text-right">Event</div>
+              </div>
+              
+              <div className="divide-y divide-[#141414]/5">
+                {globalDowntimeLogs.length > 0 ? globalDowntimeLogs.map((log) => (
+                  <div key={log.id} className="grid grid-cols-[1fr_1fr_1fr_1fr] items-center p-2 hover:bg-rose-50/50 transition-colors">
+                    <div className="text-xs font-bold">{log.device_name}</div>
+                    <div className="font-mono text-[10px] opacity-60">{log.device_ip}</div>
+                    <div className="font-mono text-[10px] opacity-60">
+                      {format(new Date(log.timestamp), 'MMM dd, yyyy HH:mm:ss')}
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[8px] font-bold uppercase text-rose-600 bg-rose-100 px-2 py-0.5 rounded border border-rose-200">
+                        OFFLINE
+                      </span>
+                    </div>
+                  </div>
+                )) : (
+                  <div className="p-8 text-center text-[10px] opacity-40 italic uppercase">
+                    No downtime incidents recorded.
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
         </section>
 
         {/* Detail Panel */}
@@ -664,7 +719,7 @@ report();
                     <Clock size={12} /> Recent Activity
                   </h4>
                   <div className="space-y-2">
-                    {selectedDeviceLogs.length > 0 ? selectedDeviceLogs.map(log => (
+                    {selectedDeviceLogs.length > 0 ? selectedDeviceLogs.slice(0, 5).map(log => (
                       <div key={log.id} className="text-[11px] p-2 border-b border-[#141414]/10 flex justify-between">
                         <span className="font-mono opacity-60">{new Date(log.timestamp).toLocaleTimeString()}</span>
                         <span className={cn(
