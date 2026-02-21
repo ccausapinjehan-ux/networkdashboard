@@ -46,6 +46,9 @@ const DeviceIcon = ({ type, className }: { type: Device['type'], className?: str
 export default function App() {
   const [devices, setDevices] = useState<Device[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(localStorage.getItem('agp_auth') === 'true');
+  const [loginForm, setLoginForm] = useState({ username: 'princetopher', password: '1274cOc72' });
+  const [loginError, setLoginError] = useState('');
   const [socket, setSocket] = useState<Socket | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<string>('all');
@@ -67,8 +70,35 @@ export default function App() {
   };
 
   useEffect(() => {
-    fetchGlobalDowntime();
-  }, []);
+    if (isAuthenticated) {
+      fetchGlobalDowntime();
+    }
+  }, [isAuthenticated]);
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoginError('');
+    try {
+      const res = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(loginForm),
+      });
+      if (res.ok) {
+        setIsAuthenticated(true);
+        localStorage.setItem('agp_auth', 'true');
+      } else {
+        setLoginError('Invalid credentials. Please try again.');
+      }
+    } catch (err) {
+      setLoginError('Server connection failed.');
+    }
+  };
+
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    localStorage.removeItem('agp_auth');
+  };
 
   const handleDeleteDevice = async (id: number) => {
     try {
@@ -132,6 +162,8 @@ export default function App() {
   }, [selectedDevice]);
 
   useEffect(() => {
+    if (!isAuthenticated) return;
+
     const fetchDevices = async () => {
       try {
         const res = await fetch('/api/devices');
@@ -243,6 +275,69 @@ report();
     offline: devices.filter(d => d.status === 'offline').length,
   };
 
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-brand-gray flex items-center justify-center p-4">
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-white border border-brand-dark/10 p-8 rounded-lg w-full max-w-md shadow-2xl"
+        >
+          <div className="flex flex-col items-center mb-8">
+            <img 
+              src="https://media.licdn.com/dms/image/v2/D4D0BAQF_EJ9WP_ZXog/company-logo_200_200/company-logo_200_200/0/1738346357475/ag_p_americas_inc_logo?e=2147483647&v=beta&t=25UpHlgHLtn4pKtcfM3oX6G-fSBdHLEXaTMMws51PXc" 
+              alt="AG&P Logo" 
+              className="h-16 w-auto mb-4"
+              referrerPolicy="no-referrer"
+            />
+            <h1 className="text-xl font-bold uppercase tracking-tight text-brand-dark">Infrastructure Login</h1>
+            <p className="text-[10px] font-mono opacity-40 uppercase tracking-widest">AG&P Americas Inc.</p>
+          </div>
+
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div>
+              <label className="block text-[10px] font-mono uppercase opacity-60 mb-1">Username</label>
+              <input 
+                type="text" 
+                className="w-full p-3 bg-brand-gray border border-brand-dark/10 rounded text-sm font-mono focus:outline-none focus:ring-1 focus:ring-brand-red/20"
+                value={loginForm.username}
+                onChange={e => setLoginForm({...loginForm, username: e.target.value})}
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-mono uppercase opacity-60 mb-1">Password</label>
+              <input 
+                type="password" 
+                className="w-full p-3 bg-brand-gray border border-brand-dark/10 rounded text-sm font-mono focus:outline-none focus:ring-1 focus:ring-brand-red/20"
+                value={loginForm.password}
+                onChange={e => setLoginForm({...loginForm, password: e.target.value})}
+                required
+              />
+            </div>
+            
+            {loginError && (
+              <div className="text-[10px] text-brand-red font-bold uppercase bg-brand-red/5 p-2 rounded border border-brand-red/10">
+                {loginError}
+              </div>
+            )}
+
+            <button 
+              type="submit"
+              className="w-full bg-brand-red text-white py-3 rounded text-xs font-bold uppercase mt-4 hover:bg-brand-red/90 transition-all shadow-md"
+            >
+              Authenticate Session
+            </button>
+          </form>
+          
+          <p className="text-[9px] font-mono opacity-30 text-center mt-6 uppercase">
+            Secure Access Terminal // AG&P Americas Network
+          </p>
+        </motion.div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex flex-col">
       {/* Header */}
@@ -270,6 +365,12 @@ report();
             <div className="opacity-40">|</div>
             <div className="opacity-60">{format(new Date(), 'yyyy-MM-dd HH:mm:ss')}</div>
           </div>
+          <button 
+            onClick={handleLogout}
+            className="text-[10px] font-mono uppercase opacity-40 hover:opacity-100 transition-opacity border border-brand-dark/10 px-2 py-1 rounded"
+          >
+            Logout
+          </button>
           <button 
             onClick={() => setIsAddModalOpen(true)}
             className="bg-brand-red text-white px-4 py-2 rounded text-xs font-bold uppercase hover:bg-brand-red/90 transition-all flex items-center gap-2 shadow-sm"

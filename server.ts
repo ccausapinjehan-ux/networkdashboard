@@ -68,6 +68,15 @@ async function startServer() {
 
   app.use(express.json());
 
+  app.post("/api/login", (req, res) => {
+    const { username, password } = req.body;
+    if (username === "princetopher" && password === "1274cOc72") {
+      res.json({ success: true, token: "agp-session-token-2026" });
+    } else {
+      res.status(401).json({ success: false, message: "Invalid credentials" });
+    }
+  });
+
   // API Routes
   app.get("/api/devices", (req, res) => {
     const devices = db.prepare("SELECT * FROM devices").all();
