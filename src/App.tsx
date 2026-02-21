@@ -64,7 +64,7 @@ export default function App() {
   const [isAgentModalOpen, setIsAgentModalOpen] = useState(false);
   const [newDevice, setNewDevice] = useState({ name: '', ip: '', type: 'switch' as Device['type'], location: '' });
   const [theme, setTheme] = useState<'light' | 'dark'>(localStorage.getItem('agp_theme') as 'light' | 'dark' || 'light');
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'topology'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'topology' | 'downtime'>('dashboard');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
@@ -463,6 +463,15 @@ report();
                 >
                   <Map size={18} /> Topology
                 </button>
+                <button 
+                  onClick={() => { setActiveTab('downtime'); setIsMobileMenuOpen(false); }}
+                  className={cn(
+                    "flex items-center gap-3 p-3 rounded text-xs font-bold uppercase transition-colors",
+                    activeTab === 'downtime' ? "bg-brand-red text-white" : "hover:bg-[var(--border-color)]"
+                  )}
+                >
+                  <AlertTriangle size={18} /> Downtime History
+                </button>
               </nav>
 
               <div className="mt-auto pt-6 border-t border-[var(--border-color)]">
@@ -629,6 +638,15 @@ report();
             >
               <Map size={16} /> Topology
             </button>
+            <button 
+              onClick={() => setActiveTab('downtime')}
+              className={cn(
+                "flex items-center gap-3 p-3 rounded text-[10px] font-bold uppercase tracking-widest transition-colors",
+                activeTab === 'downtime' ? "bg-brand-red text-white" : "hover:bg-[var(--border-color)] opacity-60"
+              )}
+            >
+              <AlertTriangle size={16} /> Downtime History
+            </button>
           </nav>
 
           {activeTab === 'dashboard' && (
@@ -643,12 +661,12 @@ report();
                     </div>
                     <div className="text-3xl font-bold font-mono">{stats.total}</div>
                   </div>
-                  <div className="border border-emerald-100 dark:border-emerald-900/30 p-4 rounded bg-emerald-50/30 dark:bg-emerald-900/10">
+                  <div className="border border-emerald-200 dark:border-emerald-800/50 p-4 rounded bg-emerald-100/10 dark:bg-emerald-900/20">
                     <div className="flex justify-between items-start mb-2">
-                      <span className="text-[10px] font-mono uppercase opacity-60 text-emerald-800 dark:text-emerald-400">Online</span>
-                      <CheckCircle2 size={14} className="text-emerald-500" />
+                      <span className="text-[10px] font-mono uppercase font-bold text-emerald-700 dark:text-emerald-400">Online</span>
+                      <CheckCircle2 size={14} className="text-emerald-600 dark:text-emerald-500" />
                     </div>
-                    <div className="text-3xl font-bold font-mono text-emerald-900 dark:text-emerald-100">{stats.online}</div>
+                    <div className="text-3xl font-bold font-mono text-emerald-800 dark:text-emerald-300">{stats.online}</div>
                   </div>
                   <div className="border border-brand-red/10 p-4 rounded bg-brand-red/5">
                     <div className="flex justify-between items-start mb-2">
@@ -759,11 +777,24 @@ report();
                         exit={{ opacity: 0 }}
                       >
                         <div className="text-[10px] font-mono opacity-40 sm:opacity-100">#{device.id.toString().padStart(3, '0')}</div>
-                        <div className="font-bold flex items-center gap-2">
+                        <div className="flex items-center gap-3">
                           <DeviceIcon type={device.type} className={cn(
+                            "opacity-60",
                             device.status === 'online' ? "text-emerald-500" : "text-brand-red"
                           )} />
-                          {device.name}
+                          <div className="flex flex-col">
+                            <span className="font-bold">{device.name}</span>
+                            {device.status === 'offline' && device.downtime_start && (
+                              <span className="text-[9px] text-brand-red font-mono font-bold">
+                                DOWN SINCE: {format(new Date(device.downtime_start), 'HH:mm:ss')}
+                              </span>
+                            )}
+                            {device.status === 'online' && (
+                              <span className="text-[9px] text-emerald-700 dark:text-emerald-500 font-mono font-bold">
+                                LATENCY: {device.latency}ms
+                              </span>
+                            )}
+                          </div>
                         </div>
                         <div className="text-[10px] font-mono opacity-60">{device.ip}</div>
                         <div className="text-[10px] font-mono uppercase opacity-60 sm:opacity-100">{device.type}</div>
@@ -772,7 +803,7 @@ report();
                           <span className={cn(
                             "text-[9px] font-bold uppercase px-2 py-0.5 rounded border",
                             device.status === 'online' 
-                              ? "text-emerald-600 bg-emerald-50 border-emerald-200 dark:bg-emerald-900/20 dark:border-emerald-800" 
+                              ? "text-emerald-700 bg-emerald-100/50 border-emerald-300 dark:bg-emerald-900/30 dark:border-emerald-700 dark:text-emerald-400" 
                               : "text-brand-red bg-brand-red/5 border-brand-red/20"
                           )}>
                             {device.status} {device.latency > 0 && `(${device.latency}ms)`}
@@ -791,47 +822,8 @@ report();
                   </AnimatePresence>
                 )}
               </div>
-
-              {/* Downtime History Section */}
-              <div className="h-1/3 border-t border-[var(--border-color)] flex flex-col overflow-hidden bg-[var(--bg-main)]/30">
-                <div className="p-3 border-b border-[var(--border-color)] bg-[var(--bg-main)]/50 flex items-center justify-between">
-                  <h3 className="text-[10px] font-bold uppercase tracking-widest flex items-center gap-2">
-                    <AlertTriangle size={14} className="text-brand-red" /> Global Downtime History
-                  </h3>
-                </div>
-                
-                <div className="flex-1 overflow-auto">
-                  <div className="hidden sm:grid grid-cols-[1fr_1fr_1fr_1fr] border-b border-[var(--border-color)] bg-brand-red/5 text-[9px] font-bold uppercase tracking-wider p-2 sticky top-0 z-[1]">
-                    <div>Device Name</div>
-                    <div>IP Address</div>
-                    <div>Date & Time</div>
-                    <div className="text-right">Event</div>
-                  </div>
-                  
-                  <div className="divide-y divide-[var(--border-color)]">
-                    {globalDowntimeLogs.length > 0 ? globalDowntimeLogs.map((log) => (
-                      <div key={log.id} className="flex flex-col sm:grid sm:grid-cols-[1fr_1fr_1fr_1fr] items-start sm:items-center p-3 sm:p-2 hover:bg-brand-red/5 transition-colors gap-1 sm:gap-0">
-                        <div className="text-xs font-bold">{log.device_name}</div>
-                        <div className="font-mono text-[10px] opacity-60">{log.device_ip}</div>
-                        <div className="font-mono text-[10px] opacity-60">
-                          {format(new Date(log.timestamp), 'MMM dd, HH:mm:ss')}
-                        </div>
-                        <div className="w-full sm:w-auto text-right">
-                          <span className="text-[8px] font-bold uppercase text-brand-red bg-brand-red/10 px-2 py-0.5 rounded border border-brand-red/20">
-                            OFFLINE
-                          </span>
-                        </div>
-                      </div>
-                    )) : (
-                      <div className="p-8 text-center text-[10px] opacity-40 italic uppercase">
-                        No downtime incidents recorded.
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
             </section>
-          ) : (
+          ) : activeTab === 'topology' ? (
             <section className="flex-1 flex flex-col bg-[var(--bg-card)] items-center justify-center p-10 text-center">
               <div className="max-w-md">
                 <div className="bg-brand-red/10 p-6 rounded-full w-24 h-24 flex items-center justify-center mx-auto mb-6">
@@ -846,6 +838,54 @@ report();
                 </div>
               </div>
             </section>
+          ) : (
+            <section className="flex-1 flex flex-col bg-[var(--bg-card)] overflow-hidden">
+              <div className="p-4 border-b border-[var(--border-color)] bg-[var(--bg-main)]/50 flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-bold uppercase tracking-tight flex items-center gap-2">
+                    <AlertTriangle size={20} className="text-brand-red" /> Global Downtime History
+                  </h2>
+                  <p className="text-[10px] font-mono opacity-60 uppercase tracking-widest">Incident Log // Last 100 Events</p>
+                </div>
+                <button 
+                  onClick={fetchGlobalDowntime}
+                  className="px-3 py-1.5 border border-[var(--border-color)] rounded text-[10px] font-mono uppercase hover:bg-[var(--bg-main)] transition-colors"
+                >
+                  Refresh Logs
+                </button>
+              </div>
+              
+              <div className="flex-1 overflow-auto">
+                <div className="hidden sm:grid grid-cols-[1.5fr_1fr_1.5fr_1fr] border-b border-[var(--border-color)] bg-brand-red/5 text-[10px] font-bold uppercase tracking-wider p-4 sticky top-0 z-[1]">
+                  <div>Device Name</div>
+                  <div>IP Address</div>
+                  <div>Date & Time</div>
+                  <div className="text-right">Event Status</div>
+                </div>
+                
+                <div className="divide-y divide-[var(--border-color)]">
+                  {globalDowntimeLogs.length > 0 ? globalDowntimeLogs.map((log) => (
+                    <div key={log.id} className="flex flex-col sm:grid sm:grid-cols-[1.5fr_1fr_1.5fr_1fr] items-start sm:items-center p-4 hover:bg-brand-red/5 transition-colors gap-2 sm:gap-0">
+                      <div className="text-sm font-bold">{log.device_name}</div>
+                      <div className="font-mono text-xs opacity-60">{log.device_ip}</div>
+                      <div className="font-mono text-xs opacity-60">
+                        {format(new Date(log.timestamp), 'MMMM dd, yyyy • HH:mm:ss')}
+                      </div>
+                      <div className="w-full sm:w-auto text-right">
+                        <span className="text-[10px] font-bold uppercase text-brand-red bg-brand-red/10 px-3 py-1 rounded border border-brand-red/20">
+                          NODE OFFLINE
+                        </span>
+                      </div>
+                    </div>
+                  )) : (
+                    <div className="p-20 text-center">
+                      <div className="text-4xl mb-4 opacity-20">✓</div>
+                      <p className="text-xs font-mono opacity-40 uppercase tracking-widest">No downtime incidents recorded in the logs.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </section>
           )}
         </div>
 
@@ -857,26 +897,34 @@ report();
               animate={{ x: 0 }}
               exit={{ x: '100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="w-96 border-l border-brand-dark/20 bg-white p-6 shadow-2xl z-20"
+              className="w-full sm:w-96 border-l border-[var(--border-color)] bg-[var(--bg-card)] p-6 shadow-2xl z-50 fixed inset-y-0 right-0 lg:relative"
             >
               <div className="flex justify-between items-center mb-8">
                 <div>
-                  <h2 className="text-xl font-bold uppercase tracking-tight text-brand-dark">{selectedDevice.name}</h2>
-                  <p className="text-[10px] font-mono opacity-40 uppercase">{selectedDevice.ip}</p>
+                  <h2 className="text-xl font-bold uppercase tracking-tight">{selectedDevice.name}</h2>
+                  <div className="flex items-center gap-2">
+                    <p className="text-[10px] font-mono opacity-40 uppercase">{selectedDevice.ip}</p>
+                    <span className={cn(
+                      "text-[9px] font-bold px-1.5 py-0.5 rounded",
+                      selectedDevice.status === 'online' ? "text-emerald-600 dark:text-emerald-400 bg-emerald-500/10" : "text-brand-red bg-brand-red/10"
+                    )}>
+                      {selectedDevice.status === 'online' ? `${selectedDevice.latency}ms` : 'OFFLINE'}
+                    </span>
+                  </div>
                 </div>
-                <button onClick={() => setSelectedDevice(null)} className="p-2 hover:bg-brand-gray rounded-full transition-colors">
+                <button onClick={() => setSelectedDevice(null)} className="p-2 hover:bg-[var(--border-color)] rounded-full transition-colors">
                   <Plus className="rotate-45" size={20} />
                 </button>
               </div>
 
               <div className="space-y-6">
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-brand-gray p-4 rounded border border-brand-dark/5">
-                    <span className="text-[9px] font-mono uppercase opacity-40 block mb-1 text-brand-dark">Latency</span>
-                    <div className="text-xl font-bold font-mono text-brand-dark">{selectedDevice.latency}ms</div>
+                  <div className="bg-[var(--bg-main)] p-4 rounded border border-[var(--border-color)]">
+                    <span className="text-[9px] font-mono uppercase opacity-40 block mb-1">Latency</span>
+                    <div className="text-xl font-bold font-mono">{selectedDevice.latency}ms</div>
                   </div>
-                  <div className="bg-brand-gray p-4 rounded border border-brand-dark/5">
-                    <span className="text-[9px] font-mono uppercase opacity-40 block mb-1 text-brand-dark">Uptime</span>
+                  <div className="bg-[var(--bg-main)] p-4 rounded border border-[var(--border-color)]">
+                    <span className="text-[9px] font-mono uppercase opacity-40 block mb-1">Uptime</span>
                     <div className="text-xl font-bold font-mono text-emerald-600">99.8%</div>
                   </div>
                 </div>
@@ -887,13 +935,13 @@ report();
                   </h4>
                   <div className="space-y-2">
                     {selectedDeviceLogs.length > 0 ? selectedDeviceLogs.slice(0, 5).map(log => (
-                      <div key={log.id} className="text-[11px] p-2 border-b border-brand-dark/5 flex justify-between items-center">
+                      <div key={log.id} className="text-[11px] p-2 border-b border-[var(--border-color)] flex justify-between items-center">
                         <span className="font-mono opacity-60">{new Date(log.timestamp).toLocaleTimeString()}</span>
                         <span className={cn(
                           "font-bold uppercase text-[9px] px-2 py-0.5 rounded",
-                          log.status === 'online' ? "text-emerald-700 bg-emerald-50" : "text-brand-red bg-brand-red/5"
+                          log.status === 'online' ? "text-emerald-700 bg-emerald-50 dark:bg-emerald-900/20 dark:text-emerald-400" : "text-brand-red bg-brand-red/5"
                         )}>
-                          {log.status} {log.latency > 0 && `(${log.latency}ms)`}
+                          {log.status} ({log.latency}ms)
                         </span>
                       </div>
                     )) : (
@@ -916,10 +964,10 @@ report();
                 </section>
 
                 <div className="pt-6 flex gap-2">
-                  <button className="flex-1 bg-brand-dark text-white py-2 rounded text-[10px] font-bold uppercase hover:bg-brand-red transition-colors">
+                  <button className="flex-1 bg-brand-dark dark:bg-brand-red text-white py-2 rounded text-[10px] font-bold uppercase hover:opacity-90 transition-colors">
                     Remote Access
                   </button>
-                  <button className="flex-1 border border-brand-dark py-2 rounded text-[10px] font-bold uppercase hover:bg-brand-gray transition-colors">
+                  <button className="flex-1 border border-[var(--border-color)] py-2 rounded text-[10px] font-bold uppercase hover:bg-[var(--bg-main)] transition-colors">
                     Diagnostics
                   </button>
                 </div>
