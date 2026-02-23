@@ -62,6 +62,7 @@ export default function App() {
   const [globalDowntimeLogs, setGlobalDowntimeLogs] = useState<(DeviceLog & { device_name: string, device_ip: string })[]>([]);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isAgentModalOpen, setIsAgentModalOpen] = useState(false);
+  const [agentModalTab, setAgentModalTab] = useState<'script' | 'persistence'>('script');
   const [newDevice, setNewDevice] = useState({ name: '', ip: '', type: 'switch' as Device['type'], location: '' });
   const [theme, setTheme] = useState<'light' | 'dark'>(localStorage.getItem('agp_theme') as 'light' | 'dark' || 'light');
   const [activeTab, setActiveTab] = useState<'dashboard' | 'topology' | 'downtime'>('dashboard');
@@ -289,6 +290,16 @@ async function report() {
 console.log('NetWatch Pro Agent Started');
 setInterval(report, CONFIG.INTERVAL);
 report();
+  `.trim();
+
+  const windowsPersistenceScript = `
+# Run this in PowerShell as Administrator to install the agent as a background task
+$ScriptPath = "$PSScriptRoot\\agent.js"
+$Action = New-ScheduledTaskAction -Execute "node.exe" -Argument "$ScriptPath"
+$Trigger = New-ScheduledTaskTrigger -AtStartup
+$Principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount
+Register-ScheduledTask -Action $Action -Trigger $Trigger -Principal $Principal -TaskName "NetWatchAgent" -Description "NetWatch Pro Remote Agent" -Force
+Write-Host "Agent installed successfully as a background service." -ForegroundColor Green
   `.trim();
 
   const stats = {
@@ -585,31 +596,103 @@ report();
               </div>
 
               <div className="space-y-4">
-                <p className="text-xs opacity-70">
-                  Copy this script and run it on a computer inside your local network. It will ping your local devices and send the status back to this dashboard.
-                </p>
-                
-                <div className="relative">
-                  <pre className="bg-brand-dark text-emerald-400 p-4 rounded text-[10px] font-mono overflow-auto max-h-80 border border-white/10">
-                    {agentScript}
-                  </pre>
+                <div className="flex border-b border-[var(--border-color)]">
                   <button 
-                    onClick={() => navigator.clipboard.writeText(agentScript)}
-                    className="absolute top-2 right-2 bg-white/10 hover:bg-white/20 text-white px-2 py-1 rounded text-[9px] font-mono uppercase"
+                    onClick={() => setAgentModalTab('script')}
+                    className={cn(
+                      "px-4 py-2 text-[10px] font-bold uppercase tracking-widest border-b-2 transition-all",
+                      agentModalTab === 'script' ? "border-brand-red text-brand-red" : "border-transparent opacity-40 hover:opacity-100"
+                    )}
                   >
-                    Copy Code
+                    1. Agent Script
+                  </button>
+                  <button 
+                    onClick={() => setAgentModalTab('persistence')}
+                    className={cn(
+                      "px-4 py-2 text-[10px] font-bold uppercase tracking-widest border-b-2 transition-all",
+                      agentModalTab === 'persistence' ? "border-brand-red text-brand-red" : "border-transparent opacity-40 hover:opacity-100"
+                    )}
+                  >
+                    2. Auto-Start (Persistence)
                   </button>
                 </div>
 
-                <div className="bg-amber-100 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-800 p-4 rounded text-[11px] text-amber-900 dark:text-amber-200">
-                  <p className="font-bold uppercase mb-1">Instructions:</p>
-                  <ol className="list-decimal pl-4 space-y-1">
-                    <li>Install Node.js on your local computer.</li>
-                    <li>Save this code as <code className="font-bold">agent.js</code>.</li>
-                    <li>Edit the <code className="font-bold">DEVICES</code> array in the script with your local IPs.</li>
-                    <li>Run <code className="font-bold">node agent.js</code> in your terminal.</li>
-                  </ol>
-                </div>
+                {agentModalTab === 'script' ? (
+                  <>
+                    <p className="text-xs opacity-70">
+                      Copy this script and run it on a computer inside your local network. It will ping your local devices and send the status back to this dashboard.
+                    </p>
+                    
+                    <div className="relative">
+                      <pre className="bg-brand-dark text-emerald-400 p-4 rounded text-[10px] font-mono overflow-auto max-h-80 border border-white/10">
+                        {agentScript}
+                      </pre>
+                      <button 
+                        onClick={() => navigator.clipboard.writeText(agentScript)}
+                        className="absolute top-2 right-2 bg-white/10 hover:bg-white/20 text-white px-2 py-1 rounded text-[9px] font-mono uppercase"
+                      >
+                        Copy Code
+                      </button>
+                    </div>
+
+                    <div className="bg-amber-100 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-800 p-4 rounded text-[11px] text-amber-900 dark:text-amber-200">
+                      <p className="font-bold uppercase mb-1">Instructions:</p>
+                      <ol className="list-decimal pl-4 space-y-1">
+                        <li>Install Node.js on your local computer.</li>
+                        <li>Save this code as <code className="font-bold">agent.js</code>.</li>
+                        <li>Run <code className="font-bold">node agent.js</code> in your terminal.</li>
+                      </ol>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-xs opacity-70">
+                      To make the agent run automatically in the background when your computer starts, follow these steps:
+                    </p>
+
+                    <div className="space-y-4">
+                      <div className="p-4 border border-[var(--border-color)] rounded bg-[var(--bg-main)]">
+                        <h3 className="text-[10px] font-bold uppercase mb-2 flex items-center gap-2">
+                          <div className="w-1.5 h-1.5 rounded-full bg-blue-500" /> Windows (PowerShell)
+                        </h3>
+                        <div className="relative">
+                          <pre className="bg-brand-dark text-blue-400 p-3 rounded text-[9px] font-mono overflow-auto border border-white/5">
+                            {windowsPersistenceScript}
+                          </pre>
+                          <button 
+                            onClick={() => navigator.clipboard.writeText(windowsPersistenceScript)}
+                            className="absolute top-2 right-2 bg-white/10 hover:bg-white/20 text-white px-2 py-1 rounded text-[8px] font-mono uppercase"
+                          >
+                            Copy
+                          </button>
+                        </div>
+                        <p className="text-[9px] mt-2 opacity-50 italic">
+                          Save as "install.ps1" in the same folder as agent.js and run as Administrator.
+                        </p>
+                      </div>
+
+                      <div className="p-4 border border-[var(--border-color)] rounded bg-[var(--bg-main)]">
+                        <h3 className="text-[10px] font-bold uppercase mb-2 flex items-center gap-2">
+                          <div className="w-1.5 h-1.5 rounded-full bg-orange-500" /> Linux (Systemd)
+                        </h3>
+                        <div className="bg-brand-dark text-orange-400 p-3 rounded text-[9px] font-mono border border-white/5">
+                          [Unit]<br/>
+                          Description=NetWatch Agent<br/>
+                          After=network.target<br/><br/>
+                          [Service]<br/>
+                          ExecStart=/usr/bin/node /path/to/agent.js<br/>
+                          Restart=always<br/>
+                          User=youruser<br/><br/>
+                          [Install]<br/>
+                          WantedBy=multi-user.target
+                        </div>
+                        <p className="text-[9px] mt-2 opacity-50 italic">
+                          Save to /etc/systemd/system/netwatch.service and run "systemctl enable netwatch".
+                        </p>
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             </motion.div>
           </div>
